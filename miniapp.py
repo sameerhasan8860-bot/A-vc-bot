@@ -127,6 +127,20 @@ async def join_bridge(request):
 
 
 
+
+async def reset_settings(request):
+    runtime = runtime_or_error(request["user_id"])
+    defaults = DSPSettings()
+    await runtime.update_dsp(**defaults.to_dict())
+    await runtime.set_level(1.0)
+    db = request.app["db"]
+    await db.save_dsp(request["user_id"], runtime.dsp.settings.to_dict())
+    await db.save_level(request["user_id"], 1.0)
+    return web.json_response({
+        "ok": True,
+        "dsp": runtime.dsp.settings.to_dict(),
+        "level": 1.0,
+    })
 async def unhost_account(request):
     user_id = request["user_id"]
     runtime = get_runtime(user_id)
@@ -155,6 +169,7 @@ def create_app(db):
     app.router.add_get("/", index)
     app.router.add_get("/api/state", state)
     app.router.add_post("/api/settings", update_settings)
+    app.router.add_post("/api/reset", reset_settings)
     app.router.add_post("/api/level", update_level)
     app.router.add_post("/api/bridge", join_bridge)
     app.router.add_post("/api/leave", leave_bridge)
