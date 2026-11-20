@@ -44,6 +44,7 @@ async def main():
         ("echo", "Set echo 0-100"),
         ("distortion", "Set distortion 0-100"),
         ("dsp", "Show audio DSP settings"),
+        ("reset", "Reset VC audio settings to defaults"),
         ("leave", "Disconnect the VC bridge"),
         ("status", "Show live bridge status"),
         ("unhost", "Remove hosted account"),
