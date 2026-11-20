@@ -224,7 +224,7 @@ async def finish_hosting(
     )
 
 
-@router.message(F.text)
+@router.message(F.text & ~F.text.startswith("/"))
 async def login_text_handler(
     message: Message,
     db: Database,
