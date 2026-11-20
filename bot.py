@@ -1,6 +1,7 @@
 import html
 import logging
 import math
+import os
 from typing import Any
 
 from aiogram import F, Router
@@ -10,6 +11,7 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
+    WebAppInfo,
 )
 from telethon import TelegramClient
 from telethon.errors import (
@@ -33,7 +35,11 @@ pending_logins: dict[int, dict[str, Any]] = {}
 
 
 def home_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
+    rows = []
+    mini_app_url = os.getenv("MINI_APP_URL", "").strip()
+    if mini_app_url.startswith("https://"):
+        rows.append([InlineKeyboardButton(text="🎛 Open VC Control Panel", web_app=WebAppInfo(url=mini_app_url))])
+    rows.extend([
         [
             InlineKeyboardButton(text="🎙 Host Account", callback_data="host"),
             InlineKeyboardButton(text="📊 Live Status", callback_data="status"),
@@ -43,6 +49,7 @@ def home_keyboard():
             InlineKeyboardButton(text="⏹ Leave Bridge", callback_data="leave"),
         ],
     ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def help_text():
