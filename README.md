@@ -90,3 +90,12 @@ The `feature/vc-audio-amplifier` branch adds a streaming stereo PCM DSP stage be
 Settings are stored in MongoDB per hosted account and restored after restart. Existing `/level` remains as a legacy post-DSP gain control.
 
 **Porting note:** Android microphone capture, AudioTrack playback and Android hardware AcousticEchoCanceler / NoiseSuppressor / AutomaticGainControl are device APIs and are not copied into the server-side VC relay. The portable PCM DSP stages are adapted from the APK's 44.1 kHz mono processing to the relay's 48 kHz stereo frames. The supplied ZIP is decompiled app source, not the original editable Android project.
+
+
+## Telegram Mini App — CHIMNEY VC Studio
+
+The `/start` keyboard includes **Open VC Control Panel** when the runner has established its HTTPS tunnel. The Mini App provides live account/bridge status, source and target group IDs, connect/disconnect, DSP power, amplification, gain, bass, treble, echo, distortion, and legacy output-level controls. It also exposes host-account and unhost actions.
+
+The Mini App is served by the bot process on port `8080`. The GitHub Actions workflow starts a temporary Cloudflare Quick Tunnel and passes its HTTPS URL to the bot as `MINI_APP_URL`. The URL changes when a new runner starts; the bot updates its chat menu button and /start keyboard each run. This is a temporary runner tunnel, not permanent hosting.
+
+API requests validate Telegram Web App `initData` using the bot token before accessing the requesting user's runtime. Never expose the bot token or Mini App API outside this authenticated flow. To host an account, use the Mini App's Host Account action; Telegram will return to the bot chat and start the existing private /host login flow. The phone login code and 2FA password remain in the private bot chat, not inside the web page.
