@@ -24,6 +24,7 @@ from telethon.sessions import StringSession
 from config import Settings
 from database import Database
 from voice import VoiceRuntime
+from dsp import AudioDSP, DSPSettings
 
 log = logging.getLogger("chimney.bot")
 router = Router()
@@ -154,6 +155,24 @@ async def leave_callback(callback: CallbackQuery, db: Database):
     await callback.answer("Bridge disconnected.")
     await callback.message.answer(status_text(runtime))
 
+
+
+def dsp_panel(runtime):
+    s=runtime.dsp.settings
+    return ("<b>CHIMNEY • AUDIO DSP</b>\\n"
+      f"Power: <code>{'ON' if s.enabled else 'OFF'}</code>\\n"
+      f"Amplification: <code>{s.amplification_db:g} dB</code>\\n"
+      f"Gain: <code>{s.gain_percent:g}%</code> • Bass: <code>{s.bass_percent:g}%</code>\\n"
+      f"Treble: <code>{s.treble_percent:g}%</code> • Echo: <code>{s.echo_percent:g}%</code>\\n"
+      f"Distortion: <code>{s.distortion_percent:g}%</code>")
+
+async def apply_dsp(message, runtime, db, **changes):
+    try:
+        await runtime.update_dsp(**changes)
+        await db.save_dsp(message.from_user.id,runtime.dsp.settings.to_dict())
+        await message.answer(dsp_panel(runtime))
+    except ValueError as exc:
+        await message.answer(f"Invalid value: {html.escape(str(exc))}")
 
 @router.message(Command("host"))
 async def host_command(message: Message, settings: Settings):
@@ -334,6 +353,42 @@ async def join_command(message: Message, db: Database):
         )
 
 
+
+@router.message(Command("amp"))
+async def amp_command(message: Message, db: Database):
+    r=get_runtime(message.from_user.id)
+    if not r: await message.answer("First host with /host."); return
+    p=(message.text or "").split(maxsplit=1)
+    if len(p)!=2: await message.answer("Usage: /amp on|off or /amp 0-200"); return
+    x=p[1].lower()
+    if x in ("on","off"): await apply_dsp(message,r,db,enabled=x=="on"); return
+    try: await apply_dsp(message,r,db,amplification_db=float(x))
+    except ValueError: await message.answer("Amplification must be 0-200 dB.")
+
+def slider_cmd(field,label):
+    async def handler(message: Message, db: Database):
+        r=get_runtime(message.from_user.id)
+        if not r: await message.answer("First host with /host."); return
+        p=(message.text or "").split(maxsplit=1)
+        if len(p)!=2: await message.answer(f"Usage: /{label.lower()} 0-100"); return
+        try:
+            x=float(p[1])
+            if not math.isfinite(x): raise ValueError()
+            await apply_dsp(message,r,db,**{field:x})
+        except ValueError: await message.answer(f"{label} must be 0-100.")
+    return handler
+
+router.message.register(slider_cmd("gain_percent","Gain"),Command("gain"))
+router.message.register(slider_cmd("bass_percent","Bass"),Command("bass"))
+router.message.register(slider_cmd("treble_percent","Treble"),Command("treble"))
+router.message.register(slider_cmd("echo_percent","Echo"),Command("echo"))
+router.message.register(slider_cmd("distortion_percent","Distortion"),Command("distortion"))
+
+@router.message(Command("dsp"))
+async def dsp_command(message: Message):
+    r=get_runtime(message.from_user.id)
+    await message.answer(dsp_panel(r) if r else "First host with /host.")
+
 @router.message(Command("level"))
 async def level_command(message: Message, db: Database):
     runtime = get_runtime(message.from_user.id)
@@ -400,6 +455,7 @@ async def restore_accounts(db: Database, settings: Settings):
         try:
             runtime = VoiceRuntime(user_id, doc["session"], settings)
             runtime.level = float(doc.get("level", 1.0))
+            runtime.dsp = AudioDSP(settings=DSPSettings.from_dict(doc.get("dsp", {})))
             await runtime.start()
             runtimes[user_id] = runtime
             bridge = doc.get("bridge")
