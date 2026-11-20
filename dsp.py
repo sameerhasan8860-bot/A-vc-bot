@@ -59,7 +59,7 @@ class AudioDSP:
     def process(self,pcm):
         a=np.frombuffer(pcm,dtype="<i2"); n=len(a)-(len(a)%self.channels)
         if not n:return pcm
-        if not self.settings.enabled:return a[:n].tobytes()
+        if not self.settings.enabled:return pcm
         x=a[:n].astype(np.float64).reshape(-1,self.channels); out=np.empty_like(x); s=self.settings
         e=s.echo_percent/100; gain=s.gain_percent/50*10**(s.amplification_db/20); drive=s.distortion_percent/100
         delay=self.echo.shape[1]//2
