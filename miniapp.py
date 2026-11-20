@@ -123,6 +123,18 @@ async def join_bridge(request):
         raise web.HTTPBadRequest(text=str(exc)[:500])
 
 
+
+async def unhost_account(request):
+    user_id = request["user_id"]
+    runtime = get_runtime(user_id)
+    if runtime is not None:
+        from bot import runtimes
+        runtimes.pop(user_id, None)
+        await runtime.stop()
+    await request.app["db"].delete_account(user_id)
+    return web.json_response({"ok": True})
+
+
 async def leave_bridge(request):
     runtime = runtime_or_error(request["user_id"])
     await runtime.stop_bridge()
@@ -142,5 +154,5 @@ def create_app(db):
     app.router.add_post("/api/settings", update_settings)
     app.router.add_post("/api/level", update_level)
     app.router.add_post("/api/bridge", join_bridge)
-    app.router.add_post("/api/leave", leave_bridge)
+    app.router.add_post("/api/leave", leave_bridge)\n    app.router.add_post("/api/unhost", unhost_account)
     return app
