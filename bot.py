@@ -34,10 +34,10 @@ runtimes: dict[int, VoiceRuntime] = {}
 pending_logins: dict[int, dict[str, Any]] = {}
 
 
-def home_keyboard():
+def home_keyboard(include_mini_app=True):
     rows = []
     mini_app_url = os.getenv("MINI_APP_URL", "").strip()
-    if mini_app_url.startswith("https://"):
+    if include_mini_app and mini_app_url.startswith("https://"):
         rows.append([InlineKeyboardButton(text="🎛 Open VC Control Panel", web_app=WebAppInfo(url=mini_app_url))])
     rows.extend([
         [
@@ -133,12 +133,12 @@ async def start_command(message: Message):
 
 @router.message(Command("help"))
 async def help_command(message: Message):
-    await message.answer(help_text(), reply_markup=home_keyboard())
+    await message.answer(help_text(), reply_markup=home_keyboard(message.chat.type == "private"))
 
 
 @router.callback_query(F.data == "help")
 async def help_callback(callback: CallbackQuery):
-    await callback.message.answer(help_text(), reply_markup=home_keyboard())
+    await callback.message.answer(help_text(), reply_markup=home_keyboard(callback.message.chat.type == "private"))
     await callback.answer()
 
 
