@@ -63,6 +63,9 @@ class Database:
     async def save_level(self, user_id: int, level: float):
         await self.sessions.update_one({"user_id": user_id}, {"$set": {"level": level}})
 
+    async def save_dsp(self, user_id: int, settings: dict):
+        await self.sessions.update_one({"user_id": user_id}, {"$set": {"dsp": settings}})
+
     async def clear_bridge(self, user_id: int):
         await self.sessions.update_one({"user_id": user_id}, {"$set": {"bridge": None}})
 
