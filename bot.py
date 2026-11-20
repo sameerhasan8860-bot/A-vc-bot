@@ -239,6 +239,11 @@ async def login_text_handler(
     pending = pending_logins.get(user_id)
     if not pending:
         return
+    # Keep phone numbers, login codes and 2FA passwords out of chat history.
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
     client: TelegramClient = pending["client"]
     try:
