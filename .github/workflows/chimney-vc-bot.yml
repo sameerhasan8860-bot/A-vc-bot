@@ -51,5 +51,23 @@ jobs:
       - name: Validate Python syntax
         run: python -m compileall -q .
 
+      - name: Start secure HTTPS tunnel for Telegram Mini App
+        run: |
+          sudo curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+          sudo chmod +x /usr/local/bin/cloudflared
+          cloudflared tunnel --url http://127.0.0.1:8080 --no-autoupdate > cloudflared.log 2>&1 &
+          for i in $(seq 1 45); do
+            MINI_APP_URL=$(grep -Eo 'https://[a-zA-Z0-9-]+\.trycloudflare\.com' cloudflared.log | head -n 1 || true)
+            if [ -n "$MINI_APP_URL" ]; then
+              echo "MINI_APP_URL=$MINI_APP_URL" >> "$GITHUB_ENV"
+              echo "Telegram Mini App tunnel ready: $MINI_APP_URL"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat cloudflared.log
+          echo "Could not establish Mini App HTTPS tunnel" >&2
+          exit 1
+
       - name: Start CHIMNEY VC BOT
         run: python main.py
