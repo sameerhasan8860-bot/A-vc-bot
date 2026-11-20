@@ -10,6 +10,7 @@ from pytgcalls.types import Device, Direction, ExternalMedia, MediaStream, Recor
 from pytgcalls.types.raw import AudioParameters
 
 from config import Settings
+from dsp import AudioDSP, DSPSettings
 
 log = logging.getLogger("chimney.voice")
 AUDIO = AudioParameters(bitrate=48000, channels=2)
@@ -34,6 +35,7 @@ class VoiceRuntime:
         self.calls = None
         self.bridge = None
         self.level = 1.0
+        self.dsp = AudioDSP(settings=DSPSettings())
         self.lock = asyncio.Lock()
         self.started = False
 
@@ -72,25 +74,14 @@ class VoiceRuntime:
             bridge = self.bridge
             if bridge is None or update.chat_id != bridge.source_id:
                 return
-            chunks = [
-                np.frombuffer(frame.frame, dtype="<i2").astype(np.float64)
-                for frame in update.frames if frame.frame
-            ]
-            if not chunks:
-                return
-
-            size = max(len(chunk) for chunk in chunks)
-            mixed = np.zeros(size, dtype=np.float64)
-            for chunk in chunks:
-                mixed[:len(chunk)] += chunk
-            mixed /= len(chunks)
-            mixed *= self.level
-
-            # No artificial gain ceiling. The PCM output format itself clips
-            # samples outside int16 range, which can distort extreme gain.
-            pcm = np.clip(mixed, -32768, 32767).astype("<i2").tobytes()
-            try:
-                await self.calls.send_frame(bridge.target_id, Device.MICROPHONE, pcm)
+            for frame in update.frames:
+                if not frame.frame: continue
+                pcm = self.dsp.process(frame.frame)
+                if self.level != 1.0:
+                    samples = np.frombuffer(pcm, dtype="<i2").astype(np.float64)
+                    pcm = np.clip(samples*self.level, -32768, 32767).astype("<i2").tobytes()
+                try:
+                    await self.calls.send_frame(bridge.target_id, Device.MICROPHONE, pcm)
             except Exception:
                 log.exception("Frame relay failed for owner %s", self.user_id)
 
@@ -142,6 +133,9 @@ class VoiceRuntime:
 
     async def set_level(self, level: float):
         self.level = level
+
+    async def update_dsp(self, **changes):
+        self.dsp.update(**changes)
 
     async def stop(self):
         await self.stop_bridge()
