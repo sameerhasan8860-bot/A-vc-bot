@@ -24,7 +24,10 @@ def validate_init_data(raw: str):
     received_hash = data.pop("hash", None)
     if not received_hash:
         raise web.HTTPUnauthorized(text="Invalid Telegram WebApp authentication.")
-    auth_date = int(data.get("auth_date", "0"))
+    try:
+        auth_date = int(data.get("auth_date", "0"))
+    except (TypeError, ValueError):
+        raise web.HTTPUnauthorized(text="Invalid Telegram authentication timestamp.")
     if auth_date <= 0 or time.time() - auth_date > 86400 or auth_date > time.time() + 60:
         raise web.HTTPUnauthorized(text="Telegram session expired. Reopen the Mini App.")
     check = "\n".join(f"{k}={v}" for k, v in sorted(data.items()))
