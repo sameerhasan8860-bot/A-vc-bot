@@ -4,3 +4,4 @@ motor>=3.7,<4.0
 numpy>=2,<3
 py-tgcalls>=3.0.0,<4
 Telethon>=1.40,<2
+aiohttp>=3.9,<4.0
