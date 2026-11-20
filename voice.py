@@ -145,11 +145,6 @@ class VoiceRuntime:
 
     async def stop(self):
         await self.stop_bridge()
-        if self.calls is not None:
-            try:
-                await self.calls.stop()
-            except Exception:
-                log.exception("PyTgCalls stop failed for owner %s", self.user_id)
         if self.client is not None and self.client.is_connected():
             await self.client.disconnect()
         self.started = False
