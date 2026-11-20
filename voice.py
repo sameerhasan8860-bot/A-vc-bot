@@ -14,6 +14,82 @@ from config import Settings
 log = logging.getLogger("chimney.voice")
 AUDIO = AudioParameters(bitrate=48000, channels=2)
 
+# ── Audio DSP constants ──────────────────────────────────────────────────────
+_SAMPLE_RATE        = 48000
+_PRE_EMPHASIS       = 0.97      # pre-emphasis filter coeff (voice clarity boost)
+_NOISE_GATE_DB      = -42.0     # dB below which gate closes (kills background hiss)
+_NOISE_GATE_THRESH  = 10 ** (_NOISE_GATE_DB / 20.0)
+_COMP_THRESHOLD     = 0.35      # compressor knee (normalized 0-1 float)
+_COMP_RATIO         = 6.0       # compression ratio above threshold
+_SOFT_CLIP_DRIVE    = 3.5       # tanh drive — higher = more saturation headroom
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _pre_emphasis(signal: np.ndarray) -> np.ndarray:
+    """Boost high-freq content → voice sounds crisp and cuts through mix."""
+    out = np.empty_like(signal)
+    out[0] = signal[0]
+    out[1:] = signal[1:] - _PRE_EMPHASIS * signal[:-1]
+    return out
+
+
+def _noise_gate(signal: np.ndarray) -> np.ndarray:
+    """Silence frames whose RMS is below the gate threshold."""
+    rms = np.sqrt(np.mean(signal ** 2))
+    if rms < _NOISE_GATE_THRESH:
+        return np.zeros_like(signal)
+    return signal
+
+
+def _compress(signal: np.ndarray) -> np.ndarray:
+    """
+    Soft-knee downward compressor.
+    Squashes peaks above threshold by ratio, lifting average loudness.
+    Result: punchy, controlled — not flat.
+    """
+    abs_sig = np.abs(signal)
+    over = abs_sig > _COMP_THRESHOLD
+    gain = np.ones_like(signal)
+    # gain reduction only on samples above threshold
+    gain[over] = (
+        _COMP_THRESHOLD + (abs_sig[over] - _COMP_THRESHOLD) / _COMP_RATIO
+    ) / abs_sig[over]
+    return signal * gain
+
+
+def _soft_clip(signal: np.ndarray) -> np.ndarray:
+    """
+    tanh soft clipper — no hard edge, no fati awaaz.
+    Drive controls how aggressively it saturates.
+    Output range stays -1..1.
+    """
+    return np.tanh(signal * _SOFT_CLIP_DRIVE) / np.tanh(_SOFT_CLIP_DRIVE)
+
+
+def _process_audio(pcm_frames: list[np.ndarray], gain: float) -> bytes:
+    """
+    Full DSP chain:
+      mix → normalize → pre-emphasis → noise gate →
+      gain → compress → soft-clip → int16 out
+    """
+    size   = max(len(c) for c in pcm_frames)
+    mixed  = np.zeros(size, dtype=np.float64)
+    for chunk in pcm_frames:
+        mixed[:len(chunk)] += chunk
+    # average mix, normalize to -1..1 float
+    mixed /= len(pcm_frames)
+    peak = np.max(np.abs(mixed)) or 1.0
+    normalized = mixed / 32768.0          # int16 → float
+
+    # DSP chain
+    sig = _pre_emphasis(normalized)
+    sig = _noise_gate(sig)
+    sig *= gain                           # Kovak's level multiplier
+    sig = _compress(sig)
+    sig = _soft_clip(sig)                 # clean saturation, never fata hua
+
+    return (sig * 32767).astype("<i2").tobytes()
+
 
 @dataclass
 class BridgeInfo:
@@ -27,15 +103,15 @@ class VoiceRuntime:
     """One hosted user account; source VC audio is relayed one-way to target VC."""
 
     def __init__(self, user_id: int, session: str, settings: Settings):
-        self.user_id = user_id
-        self.session = session
+        self.user_id  = user_id
+        self.session  = session
         self.settings = settings
-        self.client = None
-        self.calls = None
-        self.bridge = None
-        self.level = 1.0
-        self.lock = asyncio.Lock()
-        self.started = False
+        self.client   = None
+        self.calls    = None
+        self.bridge   = None
+        self.level    = 8.0          # default: 8x gain — dominant from the start
+        self.lock     = asyncio.Lock()
+        self.started  = False
 
     async def start(self):
         self.client = TelegramClient(
@@ -72,6 +148,7 @@ class VoiceRuntime:
             bridge = self.bridge
             if bridge is None or update.chat_id != bridge.source_id:
                 return
+
             chunks = [
                 np.frombuffer(frame.frame, dtype="<i2").astype(np.float64)
                 for frame in update.frames if frame.frame
@@ -79,16 +156,8 @@ class VoiceRuntime:
             if not chunks:
                 return
 
-            size = max(len(chunk) for chunk in chunks)
-            mixed = np.zeros(size, dtype=np.float64)
-            for chunk in chunks:
-                mixed[:len(chunk)] += chunk
-            mixed /= len(chunks)
-            mixed *= self.level
+            pcm = _process_audio(chunks, self.level)
 
-            # No artificial gain ceiling. The PCM output format itself clips
-            # samples outside int16 range, which can distort extreme gain.
-            pcm = np.clip(mixed, -32768, 32767).astype("<i2").tobytes()
             try:
                 await self.calls.send_frame(bridge.target_id, Device.MICROPHONE, pcm)
             except Exception:
@@ -111,12 +180,10 @@ class VoiceRuntime:
         )
         self.bridge = info
         try:
-            # Join source and subscribe to incoming participant audio.
             await self.calls.play(source_id, MediaStream(ExternalMedia.AUDIO, AUDIO))
             await self.calls.record(
                 source_id, RecordStream(audio=True, audio_parameters=AUDIO)
             )
-            # Join target with an external audio input for the relayed frames.
             await self.calls.play(target_id, MediaStream(ExternalMedia.AUDIO, AUDIO))
         except Exception:
             self.bridge = None
