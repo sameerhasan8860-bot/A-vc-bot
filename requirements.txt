@@ -1,0 +1,6 @@
+aiogram>=3.20,<4.0
+cryptography>=44,<47
+motor>=3.7,<4.0
+numpy>=2,<3
+py-tgcalls>=3.0.0,<4
+Telethon>=1.40,<2
