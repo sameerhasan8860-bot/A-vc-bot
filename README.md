@@ -70,3 +70,23 @@ Python 3.12 is recommended.
     export BOT_TOKEN=...
     export MONGO_DB=...
     python main.py
+
+
+## Live audio amplifier DSP
+
+The `feature/vc-audio-amplifier` branch adds a streaming stereo PCM DSP stage between source VC frames and the target VC sender. It ports the supplied VoiceAmp APK's digital processing stages into Python: low-shelf bass EQ, high-shelf treble EQ, delayed echo mix, amplification in dB, percentage gain, distortion shaping and the app's soft limiter. Filter and echo state persist across frames.
+
+| Command | Function |
+|---|---|
+| `/amp on` or `/amp off` | Enable or bypass DSP |
+| `/amp 0-200` | Set amplification in dB (APK default: 20 dB) |
+| `/gain 0-100` | Output gain; 50 is unity |
+| `/bass 0-100` | Bass shelf; 50 is neutral |
+| `/treble 0-100` | Treble shelf; 50 is neutral |
+| `/echo 0-100` | Echo mix; 0 is off |
+| `/distortion 0-100` | Distortion; 0 is off |
+| `/dsp` | Display current DSP settings |
+
+Settings are stored in MongoDB per hosted account and restored after restart. Existing `/level` remains as a legacy post-DSP gain control.
+
+**Porting note:** Android microphone capture, AudioTrack playback and Android hardware AcousticEchoCanceler / NoiseSuppressor / AutomaticGainControl are device APIs and are not copied into the server-side VC relay. The portable PCM DSP stages are adapted from the APK's 44.1 kHz mono processing to the relay's 48 kHz stereo frames. The supplied ZIP is decompiled app source, not the original editable Android project.
