@@ -157,5 +157,6 @@ def create_app(db):
     app.router.add_post("/api/settings", update_settings)
     app.router.add_post("/api/level", update_level)
     app.router.add_post("/api/bridge", join_bridge)
-    app.router.add_post("/api/leave", leave_bridge)\n    app.router.add_post("/api/unhost", unhost_account)
+    app.router.add_post("/api/leave", leave_bridge)
+    app.router.add_post("/api/unhost", unhost_account)
     return app
