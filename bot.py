@@ -217,7 +217,12 @@ async def host_command(message: Message, settings: Settings):
         await message.answer("Could not start Telegram login. Please try again later.")
 
 
-@router.message(Command("cancel"))
+
+@router.message(F.web_app_data)
+async def miniapp_message_handler(message: Message, settings: Settings):
+    if message.chat.type == "private" and message.web_app_data and message.web_app_data.data == "host":
+        await host_command(message, settings)
+\n@router.message(Command("cancel"))
 async def cancel_command(message: Message):
     pending = pending_logins.pop(message.from_user.id, None)
     if pending:
