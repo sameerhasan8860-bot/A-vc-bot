@@ -1,0 +1,55 @@
+name: CHIMNEY VC BOT
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "**.py"
+      - "requirements.txt"
+      - ".github/workflows/chimney-vc-bot.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chimney-vc-bot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-bot:
+    name: Install, validate and run
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+    env:
+      API_ID: ${{ secrets.API_ID }}
+      API_HASH: ${{ secrets.API_HASH }}
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      MONGO_DB: ${{ secrets.MONGO_DB }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate Python syntax
+        run: python -m compileall -q .
+
+      - name: Start CHIMNEY VC BOT
+        run: python main.py
