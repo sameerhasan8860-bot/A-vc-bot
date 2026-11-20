@@ -66,7 +66,7 @@ def help_text():
         "▸ /level &lt;number&gt; — Legacy outgoing gain\n"
         "▸ /amp on|off or /amp 0-200 — Amplification dB\n"
         "▸ /gain, /bass, /treble, /echo, /distortion 0-100\n"
-        "▸ /dsp — Show audio DSP settings\n"
+        "▸ /dsp — Show audio DSP settings\n"        "▸ /reset — Reset VC audio settings to defaults\n"
         "▸ /status — Show account and bridge status\n\n"
         "<b>GENERAL</b>\n"
         "▸ /start — Open the control panel\n"
@@ -405,6 +405,25 @@ async def dsp_command(message: Message):
     r=get_runtime(message.from_user.id)
     await message.answer(dsp_panel(r) if r else "First host with /host.")
 
+
+@router.message(Command("reset"))
+async def reset_command(message: Message, db: Database):
+    runtime = get_runtime(message.from_user.id)
+    if runtime is None:
+        await message.answer("First host your account with /host.")
+        return
+    defaults = DSPSettings()
+    await runtime.update_dsp(**defaults.to_dict())
+    await runtime.set_level(1.0)
+    await db.save_dsp(message.from_user.id, runtime.dsp.settings.to_dict())
+    await db.save_level(message.from_user.id, 1.0)
+    await message.answer(
+        "↺ <b>VC AUDIO SETTINGS RESET</b>\n"
+        "DSP: <code>ON</code> • Amplification: <code>20 dB</code>\n"
+        "Gain/Bass/Treble: <code>50%</code> • Echo/Distortion: <code>0%</code>\n"
+        "Legacy output level: <code>1×</code>\n\n"
+        "Your active bridge was not disconnected."
+    )
 @router.message(Command("level"))
 async def level_command(message: Message, db: Database):
     runtime = get_runtime(message.from_user.id)
