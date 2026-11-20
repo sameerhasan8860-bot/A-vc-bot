@@ -81,7 +81,7 @@ async def update_settings(request):
         changes = {k: v for k, v in body.items() if k in allowed}
         if not changes:
             raise ValueError("No valid audio settings supplied.")
-        runtime.update_dsp(**changes)
+        await runtime.update_dsp(**changes)
         db = request.app["db"]
         await db.save_dsp(request["user_id"], runtime.dsp.settings.to_dict())
         return web.json_response({"ok": True, "dsp": runtime.dsp.settings.to_dict()})
