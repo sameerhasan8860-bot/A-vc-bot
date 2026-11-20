@@ -82,8 +82,8 @@ class VoiceRuntime:
                     pcm = np.clip(samples*self.level, -32768, 32767).astype("<i2").tobytes()
                 try:
                     await self.calls.send_frame(bridge.target_id, Device.MICROPHONE, pcm)
-            except Exception:
-                log.exception("Frame relay failed for owner %s", self.user_id)
+                except Exception:
+                    log.exception("Frame relay failed for owner %s", self.user_id)
 
     async def start_bridge(self, source_id: int, target_id: int):
         if not self.started or self.client is None or self.calls is None:
