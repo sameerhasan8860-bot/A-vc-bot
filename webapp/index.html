@@ -14,7 +14,7 @@
 <div id="toast" class="toast"></div>
 <section class="hero"><div class="row"><div><h1>Audio Control Center</h1><p>Shape the source audio before it reaches your target voice chat.</p></div><div style="font-size:34px">🎚️</div></div></section>
 <section class="card"><div class="row"><div><div class="section" style="margin:0 0 7px">ACCOUNT & BRIDGE</div><div class="status"><i class="dot" id="accountDot"></i><span id="accountState">Checking account…</span></div></div><button class="btn secondary" style="width:auto;padding:10px 12px" onclick="refresh()">↻ Refresh</button></div>
-<div id="bridgeDetails" class="bridgeinfo" style="margin-top:12px">Bridge status loading…</div>
+<div id="bridgeDetails" class="bridgeinfo" style="margin-top:12px">Bridge status loading…</div>\n<div class="grid" style="margin-top:12px"><button class="btn secondary" onclick="hostAccount()">🎙 Host account</button><button class="btn danger" onclick="unhostAccount()">Remove account</button></div>
 <div class="field"><div class="fieldhead"><label for="source">Source group ID</label></div><input id="source" type="number" placeholder="-100…"></div>
 <div class="field"><div class="fieldhead"><label for="target">Target group ID</label></div><input id="target" type="number" placeholder="-100…"></div>
 <div class="grid"><button class="btn" id="joinBtn" onclick="joinBridge()">Connect bridge</button><button class="btn danger" onclick="leaveBridge()">Disconnect</button></div>
